@@ -3,8 +3,8 @@ module Login (initLogin) where
 
 import Metadata
 import Network.Wreq
-import qualified Network.Wreq.Session as S
 import Control.Lens
+import qualified Network.Wreq.Session as S
 
 initLogin :: String -> IO()
 initLogin handle =  putStrLn handle
@@ -14,12 +14,12 @@ login = do
   session <- S.newSession
   S.get session cfURL
   res <- S.post session cfURL [
-    "action" := "enter",
-      "handle" := "testuser",
-      "password" := "pass",
-      "remember" := "yes"
+    "action" := ("enter"::String),
+      "handle" := ("testuser"::String),
+      "password" := ("pass"::String),
+      "remember" := ("yes"::String)
     ]
-  print $ res ^. responseBody
+  print $ res ^. responseCookieJar
 
 
 
