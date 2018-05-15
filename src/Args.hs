@@ -1,7 +1,8 @@
-module Args (start) where
+module Args where
 
 import Options.Applicative
 import Data.Monoid
+import Login
 
 data Args = Args Command
   deriving Show
@@ -34,7 +35,7 @@ parser = Args <$>
 opts = info ( helper <*> version <*> parser ) idm
 
 run :: Args -> IO()
-run (Args (Login handle)) = putStrLn ("logging in as " ++ (username handle))
+run (Args (Login (LoginOpts handle))) = initLogin handle
 
 start :: IO ()
 start = execParser opts >>= run
