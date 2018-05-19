@@ -26,6 +26,7 @@ dependencies:
 - lens
 - regex-tdfa
 - bytestring
+- pretty-simple
 library:
   source-dirs: src
 

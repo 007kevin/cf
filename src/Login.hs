@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Login (initLogin) where
 
+import Text.Pretty.Simple (pPrint)
 import qualified Metadata as M
 import Network.Wreq
 import Control.Lens
@@ -30,7 +31,7 @@ login = let loginURL = M.url ++ "/enter" in
      print $ testLogin (C.unpack (res ^. responseBody))
      cookie <- S.getSessionCookieJar session
      case cookie of
-       Just jar -> print jar
+       Just jar -> pPrint jar
        Nothing -> print "Cookie not found"
 
 testLogin :: String -> String
