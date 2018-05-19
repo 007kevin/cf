@@ -1,42 +1,40 @@
 {-# LANGUAGE OverloadedStrings #-}
-
 module Login (initLogin) where
 
-import Metadata
+import qualified Metadata as M
 import Network.Wreq
 import Control.Lens
-import Text.Regex.Posix
+import Text.Regex.TDFA
 import qualified Data.ByteString.Lazy.Char8 as C
 import qualified Network.Wreq.Session as S
 
 initLogin :: String -> IO()
 initLogin handle =  putStrLn handle
 
--- extract the csrf token from the response body
--- getToken :: String -> String
--- getToken body = result!!0!!0
---   where
---     result :: [[String]]
---     result = body =~ "name=\'csrf_token\' +value=([^\']+)"
+-- TODO: Refactor ugly code with maybe monad error handling
+extractCsrf :: Response C.ByteString -> String
+extractCsrf = head.tail.head.regex.C.unpack.(^. responseBody)
+  where
+    regex :: String -> [[String]]
+    regex = (=~ ("name='csrf_token' +value='([^\']+)'"::String))
 
 login :: IO ()
-login = do
-  session <- S.newSession
-  S.get session (cfURL++"/enter")
-  res <- S.post session cfURL [
-    "action" := ("enter"::String),
-      "handle" := ("testuser"::String),
-      "password" := ("pass"::String),
-      "remember" := ("yes"::String)
-    ]
-  print $ res ^. responseBody
-  
-regex :: String -> [[String]]
-regex = (flip (=~)) ("name='csrf_token' +value='([^\']+)'"::String)
-test = (flip (^.)) responseBody
+login = let loginURL = M.url ++ "/enter" in
+  do session <- S.newSession
+     csrf_token <- extractCsrf <$> S.get session loginURL
+     res <- S.post session loginURL [ "action"        := ("enter"::String),
+                                      "handleOrEmail" := (""::String),
+                                      "password"      := (""::String),
+                                      "remember"      := ("yes"::String),
+                                      "csrf_token"         := (csrf_token::String) ]
+     print $ testLogin (C.unpack (res ^. responseBody))
+     cookie <- S.getSessionCookieJar session
+     case cookie of
+       Just jar -> print jar
+       Nothing -> print "Cookie not found"
 
-testfn = fmap (regex.(C.unpack).test) (get (cfURL++"/enter"))
-
+testLogin :: String -> String
+testLogin = (=~ ("\"error for__password\""::String))
 
 
 

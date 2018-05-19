@@ -1,4 +1,5 @@
 module Metadata where
 
-cfURL :: String  
-cfURL = "http://codeforces.com"
+-- Codeforces URL
+url :: String
+url = "http://codeforces.com"

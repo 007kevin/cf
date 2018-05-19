@@ -24,7 +24,7 @@ dependencies:
 - optparse-applicative
 - wreq
 - lens
-- regex-posix
+- regex-tdfa
 - bytestring
 library:
   source-dirs: src
