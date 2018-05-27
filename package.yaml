@@ -27,6 +27,8 @@ dependencies:
 - regex-tdfa
 - bytestring
 - pretty-simple
+- transformers
+- monadplus
 library:
   source-dirs: src
 
