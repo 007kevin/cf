@@ -1,0 +1,2 @@
+haskell-cf-test-user
+haskell1234

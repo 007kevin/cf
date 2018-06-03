@@ -23,12 +23,15 @@ dependencies:
 - base >= 4.7 && < 5
 - optparse-applicative
 - wreq
+- http-client
 - lens
 - regex-tdfa
 - bytestring
 - pretty-simple
 - transformers
+- aeson
 - monadplus
+- text
 library:
   source-dirs: src
 
