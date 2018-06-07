@@ -1,32 +1,37 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Login (initLogin) where
 
-import System.IO
-import Control.Exception
-import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Maybe
-import Control.Monad.Plus (guard)
-import Text.Pretty.Simple (pPrint)
-import qualified Metadata as M
-import CookieSaver
-import Network.Wreq
-import Control.Lens
-import Text.Regex.TDFA
+import           System.IO
+import           Control.Exception
+import           Control.Error
+import           Control.Monad.Trans.Class (lift)
+import           Control.Monad.Trans.Maybe
+import           Control.Monad.Plus (guard)
+import           Text.Pretty.Simple (pPrint)
+import           Metadata (login_url)
+import           CookieSaver
+import           Network.Wreq
+import           Control.Lens ((^.))
+import           Text.Regex.TDFA
 import qualified Data.ByteString.Lazy.Char8 as Char
 import qualified Network.Wreq.Session as Sess
 import qualified Network.HTTP.Client.Internal as HTTP
-import Data.Aeson (encode, decode)
+import           Data.Aeson (encode, decode)
 
-login_url :: String
-login_url = M.url ++ "/enter"
-  
+data AppError
+  = AppError
+  | ParseError String
+  | FailedLogin
+  deriving Show
+
 initLogin :: String -> IO()
 initLogin handle =  do
   password <- getPassword
-  maybe <- runMaybeT $ attemptLogin handle password
-  case maybe of
-    Just v -> pPrint v
-    Nothing -> putStrLn "Login failed"
+  result <- runExceptT $ attemptLogin handle password
+  case result of
+    Right v          -> pPrint v
+    Left FailedLogin -> putStrLn "Login failed"
+    Left e           -> putStrLn $ show e
 
 getPassword :: IO String
 getPassword = do
@@ -48,21 +53,20 @@ extractCsrf res = do
     regex :: String -> Maybe [[String]]
     regex = (=~~ ("name='csrf_token' +value='([^\']+)'"::String))
 
-getCsrfToken :: Sess.Session -> String -> MaybeT IO String
-getCsrfToken session url = MaybeT $ fmap extractCsrf (Sess.get session url)
+getCsrfToken :: Sess.Session -> String -> ExceptT AppError IO String
+getCsrfToken session url =
+  ExceptT $ fmap (note'.extractCsrf) (Sess.get session url)
+  where note' = note $ ParseError "could not extract csrf token"
 
-isLoginSuccess :: Response Char.ByteString -> Bool
-isLoginSuccess res =
-  case regex (Char.unpack (res ^. responseBody)) of
-    Just _ -> False
-    Nothing -> True
+isLoginSuccess :: Response Char.ByteString -> ExceptT AppError IO String
+isLoginSuccess = (?? FailedLogin).regex.Char.unpack.(^. responseBody)
   where
-    regex :: String -> Maybe [[String]]
+    regex :: String -> Maybe String
     regex = (=~~ ("\"error for__password\""::String))
 
 -- saveCookieJar ::  CookieJar -> MaybeT IO ()
 
--- attemptLogin :: Sess.Session -> String -> String -> MaybeT IO a
+-- attemptLogin :: String -> String -> ExceptT AppError IO a
 attemptLogin handle password = do
   session <- lift Sess.newSession
   csrf_token <- getCsrfToken session login_url
@@ -71,8 +75,8 @@ attemptLogin handle password = do
                                               "csrf_token"    := (csrf_token::String),
                                               "remember"      := ("no"::String),
                                               "action"        := ("enter"::String) ]
-  guard $ isLoginSuccess res
-  cookies <- MaybeT $ Sess.getSessionCookieJar session
+  isLoginSuccess res
+  cookies <- (Sess.getSessionCookieJar session) !? AppError
   return $ (encode.HTTP.expose) cookies
   
 -- saveCookies :: CookieJar -> MaybeT IO ()

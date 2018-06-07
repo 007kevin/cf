@@ -32,6 +32,7 @@ dependencies:
 - aeson
 - monadplus
 - text
+- errors
 library:
   source-dirs: src
 
