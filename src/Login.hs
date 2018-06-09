@@ -49,7 +49,7 @@ getPassword = do
           old <- hGetEcho stdin
           bracket_ (hSetEcho stdin False) (hSetEcho stdin old) action
 
--- attemptLogin :: String -> String -> ExceptT AppError IO a
+attemptLogin :: String -> String -> ExceptT AppError IO ()
 attemptLogin handle password = do
   session <- lift Sess.newSession
   csrf_token <- getCsrfToken session login_url
