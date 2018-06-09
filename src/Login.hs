@@ -1,26 +1,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Login (initLogin) where
 
-import           System.IO
-import           Control.Exception
 import           Control.Error
+import           Control.Exception
+import           Control.Lens ((^.))
+import           Control.Monad.Plus (guard)
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.Maybe
-import           Control.Monad.Plus (guard)
-import           Text.Pretty.Simple (pPrint)
-import           Metadata (login_url)
 import           CookieSaver
-import           Network.Wreq
-import           Control.Lens ((^.))
-import           Text.Regex.TDFA
-import qualified Data.ByteString.Lazy.Char8 as Char
-import qualified Network.Wreq.Session as Sess
-import qualified Network.HTTP.Client.Internal as HTTP
 import           Data.Aeson (encode, decode)
+import qualified Data.ByteString.Lazy.Char8 as Char
+import           Metadata (login_url)
+import qualified Network.HTTP.Client.Internal as HTTP
+import           Network.Wreq
+import qualified Network.Wreq.Session as Sess
+import           System.Directory (XdgDirectory( XdgConfig ),
+                                   getXdgDirectory,
+                                   createDirectoryIfMissing)
+import           System.IO
+import           Text.Pretty.Simple (pPrint)
+import           Text.Regex.TDFA
 
 data AppError
-  = AppError
-  | ParseError String
+  = AppError String
+  | EParse String
+  | EWriteFile FilePath String
   | FailedLogin
   deriving Show
 
@@ -45,27 +49,6 @@ getPassword = do
           old <- hGetEcho stdin
           bracket_ (hSetEcho stdin False) (hSetEcho stdin old) action
 
-extractCsrf :: Response Char.ByteString -> Maybe String
-extractCsrf res = do
-  match <- regex (Char.unpack (res ^. responseBody))
-  return $ last (head match)
-  where
-    regex :: String -> Maybe [[String]]
-    regex = (=~~ ("name='csrf_token' +value='([^\']+)'"::String))
-
-getCsrfToken :: Sess.Session -> String -> ExceptT AppError IO String
-getCsrfToken session url =
-  ExceptT $ fmap (note'.extractCsrf) (Sess.get session url)
-  where note' = note $ ParseError "could not extract csrf token"
-
-isLoginSuccess :: Response Char.ByteString -> ExceptT AppError IO String
-isLoginSuccess = (?? FailedLogin).regex.Char.unpack.(^. responseBody)
-  where
-    regex :: String -> Maybe String
-    regex = (=~~ ("\"error for__password\""::String))
-
--- saveCookieJar ::  CookieJar -> MaybeT IO ()
-
 -- attemptLogin :: String -> String -> ExceptT AppError IO a
 attemptLogin handle password = do
   session <- lift Sess.newSession
@@ -76,12 +59,46 @@ attemptLogin handle password = do
                                               "remember"      := ("no"::String),
                                               "action"        := ("enter"::String) ]
   isLoginSuccess res
-  cookies <- (Sess.getSessionCookieJar session) !? AppError
-  return $ (encode.HTTP.expose) cookies
+  cookies <- (Sess.getSessionCookieJar session) !? AppError "unable to get cookiejar"
+  fpath <- configFilePath $ handle ++ ".cookies"
+  saveCookieJar fpath cookies
+
+getCsrfToken :: Sess.Session -> String -> ExceptT AppError IO String
+getCsrfToken session url =
+  ExceptT $ fmap (note'.extractCsrf) (Sess.get session url)
+  where note' = note $ EParse "could not extract csrf token"
   
--- saveCookies :: CookieJar -> MaybeT IO ()
--- saveCookies :: liftHTTP.destroyCookieJarJar CookieJar
+extractCsrf :: Response Char.ByteString -> Maybe String
+extractCsrf res = do
+  match <- regex (Char.unpack (res ^. responseBody))
+  return $ last (head match)
+  where
+    regex :: String -> Maybe [[String]]
+    regex = (=~~ ("name='csrf_token' +value='([^\']+)'"::String))
 
+isLoginSuccess :: Response Char.ByteString -> ExceptT AppError IO ()
+isLoginSuccess = (?? FailedLogin).notM.regex.Char.unpack.(^. responseBody)
+  where
+    regex :: String -> Maybe String
+    regex = (=~~ ("\"error for__password\""::String))
+    notM :: Maybe String -> Maybe ()
+    notM m = case m of
+      Just _ -> Nothing
+      Nothing -> Just ()
 
--- printCookies :: CookieJar -> IO ()
--- printCookies CookieJar cookies = pPrint cookies
+-- Returns the application file path for storing settings. In Unix systems
+-- this will be $HOME/.config/cf/<fname>
+configFilePath :: String -> ExceptT AppError IO FilePath
+configFilePath fname = do
+  fdir <- lift $ getXdgDirectory XdgConfig "cf/"
+  handleExceptT handler $ createDirectoryIfMissing True fdir
+  return $ fdir++fname
+  where handler :: SomeException -> AppError
+        handler e = EWriteFile fname (show e) 
+  
+saveCookieJar ::  FilePath -> HTTP.CookieJar -> ExceptT AppError IO ()
+saveCookieJar fpath cookies = do
+  lift $ putStrLn ("Saving cookies to " ++ fpath)
+  handleExceptT handler .writeFile fpath $ (Char.unpack.encode.HTTP.expose) cookies
+  where handler :: SomeException -> AppError
+        handler e = EWriteFile fpath (show e) 

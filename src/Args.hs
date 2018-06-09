@@ -3,6 +3,7 @@ module Args where
 import Options.Applicative
 import Data.Monoid
 import Login
+import Metadata (appVersion)
 
 data Args = Args Command
   deriving Show
@@ -16,7 +17,7 @@ data LoginOpts = LoginOpts
   deriving Show
 
 version :: Parser (a -> a)
-version = infoOption "0.0.0"
+version = infoOption appVersion
   ( long "version" <>
     help "Print version information" )
 

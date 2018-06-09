@@ -33,6 +33,7 @@ dependencies:
 - monadplus
 - text
 - errors
+- directory
 library:
   source-dirs: src
 
