@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Login (initLogin) where
 
+import           AppError
 import           Control.Error
 import           Control.Exception
 import           Control.Lens ((^.))
@@ -20,13 +21,6 @@ import           System.Directory (XdgDirectory( XdgConfig ),
 import           System.IO
 import           Text.Pretty.Simple (pPrint)
 import           Text.Regex.TDFA
-
-data AppError
-  = AppError String
-  | EParse String
-  | EWriteFile FilePath String
-  | FailedLogin
-  deriving Show
 
 initLogin :: String -> IO()
 initLogin handle =  do

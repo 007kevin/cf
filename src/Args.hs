@@ -61,8 +61,7 @@ opts = info ( helper <*> version <*> parser ) idm
 
 run :: Args -> IO()
 run (Args (Login (LoginOpts handle)))            = initLogin handle
-run (Args (Submit (SubmitOpts file lang prob ))) =
-  putStrLn $ unwords [file, (show lang), (show prob)]
+run (Args (Submit (SubmitOpts file lang prob ))) = initSubmit file lang prob
 
 start :: IO ()
 start = execParser opts >>= run
