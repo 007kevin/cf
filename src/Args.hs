@@ -26,8 +26,8 @@ loginOpts = LoginOpts <$> argument str (metavar "HANDLE")
 
 data SubmitOpts = SubmitOpts
   { file :: String,
-    lang :: Maybe String,
-    prob :: Maybe String }
+    prob :: Maybe String,
+    lang :: Maybe String }
   deriving Show
 
 submitParser :: Parser Command
@@ -36,12 +36,12 @@ submitParser = Submit <$> submitOpts
 submitOpts :: Parser SubmitOpts
 submitOpts = SubmitOpts
                <$> argument str (metavar "FILE")
-               <*> (optional $ strOption ( long "lang" <>
-                               metavar "LANG" <>
-                               help "Language for submission" ))
                <*> (optional $ strOption ( long "prob" <>
                                metavar "PROB" <>
                                help "Codeforces problem" ))
+               <*> (optional $ strOption ( long "lang" <>
+                               metavar "LANG" <>
+                               help "Language for submission" ))
 
 version :: Parser (a -> a)
 version = infoOption appVersion
@@ -61,7 +61,7 @@ opts = info ( helper <*> version <*> parser ) idm
 
 run :: Args -> IO()
 run (Args (Login (LoginOpts handle)))            = initLogin handle
-run (Args (Submit (SubmitOpts file lang prob ))) = initSubmit file lang prob
+run (Args (Submit (SubmitOpts file prob lang ))) = initSubmit file prob lang
 
 start :: IO ()
 start = execParser opts >>= run
