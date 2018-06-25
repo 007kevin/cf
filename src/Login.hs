@@ -15,9 +15,6 @@ import           Metadata (login_url)
 import qualified Network.HTTP.Client.Internal as HTTP
 import           Network.Wreq
 import qualified Network.Wreq.Session as Sess
-import           System.Directory (XdgDirectory( XdgConfig ),
-                                   getXdgDirectory,
-                                   createDirectoryIfMissing)
 import           System.IO
 import           Text.Pretty.Simple (pPrint)
 import           Text.Regex.TDFA
@@ -54,8 +51,7 @@ attemptLogin handle password = do
                                               "action"        := ("enter"::String) ]
   isLoginSuccess res
   cookies <- (Sess.getSessionCookieJar session) !? AppError "unable to get cookiejar"
-  fpath <- configFilePath $ handle ++ ".cookies"
-  saveCookieJar fpath cookies
+  saveCookieJar cookies
 
 getCsrfToken :: Sess.Session -> String -> ExceptT AppError IO String
 getCsrfToken session url =
@@ -79,20 +75,3 @@ isLoginSuccess = (?? FailedLogin).notM.regex.Char.unpack.(^. responseBody)
     notM m = case m of
       Just _ -> Nothing
       Nothing -> Just ()
-
--- Returns the application file path for storing settings. In Unix systems
--- this will be $HOME/.config/cf/<fname>
-configFilePath :: String -> ExceptT AppError IO FilePath
-configFilePath fname = do
-  fdir <- lift $ getXdgDirectory XdgConfig "cf/"
-  handleExceptT handler $ createDirectoryIfMissing True fdir
-  return $ fdir++fname
-  where handler :: SomeException -> AppError
-        handler e = EWriteFile fname (show e) 
-  
-saveCookieJar ::  FilePath -> HTTP.CookieJar -> ExceptT AppError IO ()
-saveCookieJar fpath cookies = do
-  lift $ putStrLn ("Saving cookies to " ++ fpath)
-  handleExceptT handler .writeFile fpath $ (Char.unpack.encode.HTTP.expose) cookies
-  where handler :: SomeException -> AppError
-        handler e = EWriteFile fpath (show e) 

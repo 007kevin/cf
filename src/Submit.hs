@@ -5,11 +5,15 @@ import AppError
 import System.FilePath.Posix (takeExtension, takeBaseName)
 import Control.Error.Util ((??))
 import Control.Monad.Trans.Except (ExceptT, runExceptT)
+import System.Directory (XdgDirectory( XdgConfig ),
+                         getXdgDirectory)
 import Text.Pretty.Simple (pPrint)
 import ProgressIndicator
+import CookieSaver
+import Network.HTTP.Client.Internal (Cookie)
   
 initSubmit :: String -> Maybe String -> Maybe String -> IO ()
-initSubmit file prob lang = do
+initSubmit file prob lang = do 
   result <- runExceptT $ attemptSubmit file prob lang
   case result of
     Right v -> pPrint v
@@ -35,4 +39,3 @@ infer file Nothing Nothing = do
     prob f = case takeBaseName f of
       "" -> Nothing
       b -> return b
-

@@ -3,7 +3,8 @@ module AppError where
 data AppError
   = AppError String
   | EParse String
-  | EWriteFile FilePath String
+  | EWriteFile String
+  | EReadFile String  
   | FailedLogin
   deriving Show
 

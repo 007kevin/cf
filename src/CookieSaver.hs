@@ -3,12 +3,21 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module CookieSaver where
 
+import AppError
+import Control.Error
+import Control.Error.Util ((??))
+import Control.Exception
+import System.FilePath.Posix (takeExtension, takeBaseName)
 import qualified Network.HTTP.Client.Internal as HTTP
 import Control.Monad.Trans.Class (lift)
-import Control.Monad.Trans.Maybe
-import Control.Monad.Plus (guard)
+import qualified Data.ByteString.Lazy.Char8 as Char
 import Data.Aeson
 import Data.Text.Encoding
+import Control.Monad.Trans.Except (ExceptT)
+import           System.Directory (XdgDirectory( XdgConfig ),
+                                   getXdgDirectory,
+                                   createDirectoryIfMissing)
+
 
 instance ToJSON HTTP.Cookie where
   toJSON (HTTP.Cookie
@@ -44,20 +53,33 @@ instance FromJSON HTTP.Cookie where
     <*> v .: "cookie_host_only" 
     <*> v .: "cookie_secure_only" 
     <*> v .: "cookie_http_only"
-    
-    -- {HTTP.cookie_name             = (v .: "cookie_name"),
-    --  HTTP.cookie_value            = (v .: "cookie_value"),
-    --  HTTP.cookie_expiry_time      = (v .: "cookie_expiry_time"),
-    --  HTTP.cookie_domain           = (v .: "cookie_domain" ),
-    --  HTTP.cookie_path             = (v .: "cookie_path" ),
-    --  HTTP.cookie_creation_time    = (v  .: "cookie_creation_time" ),
-    --  HTTP.cookie_last_access_time = (v .: "cookie_last_access_time" ),
-    --  HTTP.cookie_persistent       = (v .: "cookie_persistent" ),
-    --  HTTP.cookie_host_only        = (v .: "cookie_host_only" ),
-    --  HTTP.cookie_secure_only      = (v .: "cookie_secure_only" ),
-    --  HTTP.cookie_http_only        = (v .: "cookie_http_only" )
 
+-- Returns the application file path for storing settings. In Unix systems
+-- this will be $HOME/.config/cf/<fname>
+configFilePath :: ExceptT AppError IO FilePath
+configFilePath = do
+  fdir <- lift $ getXdgDirectory XdgConfig "cf/"
+  handleExceptT handler $ createDirectoryIfMissing True fdir
+  return $ fdir
+  where handler :: SomeException -> AppError
+        handler e = EWriteFile (show e) 
+  
+saveCookieJar :: HTTP.CookieJar -> ExceptT AppError IO ()
+saveCookieJar cookies = do
+  fpath <- fmap (++"user.cookies") configFilePath
+  lift $ putStrLn ("Saving cookies to " ++ fpath)
+  handleExceptT handler . writeFile fpath $ (Char.unpack.encode.HTTP.expose) cookies
+  where handler :: SomeException -> AppError
+        handler e = EWriteFile (show e)
 
-
--- saveCookies CookieJar -> MaybeT IO ()
--- saveCookies cookieJar -> HTTP.expose cookieJar
+loadCookieJar :: ExceptT AppError IO HTTP.CookieJar
+loadCookieJar = do
+  fpath <- fmap (++"user.cookies") configFilePath
+  content <- handleExceptT handler (Char.readFile fpath)
+  cookies <- (decode content) ?? EParse "unable to decode cookies"
+  return $ cookies
+  where handler :: SomeException -> AppError
+        handler e = EReadFile (show e)
+  
+  
+  
