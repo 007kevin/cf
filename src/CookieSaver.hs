@@ -77,7 +77,7 @@ loadCookieJar = do
   fpath <- fmap (++"user.cookies") configFilePath
   content <- handleExceptT handler (Char.readFile fpath)
   cookies <- (decode content) ?? EParse "unable to decode cookies"
-  return $ cookies
+  return $ HTTP.createCookieJar cookies
   where handler :: SomeException -> AppError
         handler e = EReadFile (show e)
   

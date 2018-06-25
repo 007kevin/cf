@@ -11,6 +11,9 @@ import Text.Pretty.Simple (pPrint)
 import ProgressIndicator
 import CookieSaver
 import Network.HTTP.Client.Internal (Cookie)
+import           Network.Wreq
+import qualified Network.Wreq.Session as Sess
+
   
 initSubmit :: String -> Maybe String -> Maybe String -> IO ()
 initSubmit file prob lang = do 
