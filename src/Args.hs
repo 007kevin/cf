@@ -38,7 +38,7 @@ submitOpts = SubmitOpts
                <$> argument str (metavar "FILE")
                <*> (optional $ strOption ( long "prob" <>
                                metavar "PROB" <>
-                               help "Codeforces problem" ))
+                               help "Codeforces contest with problem, eg 100A" ))
                <*> (optional $ strOption ( long "lang" <>
                                metavar "LANG" <>
                                help "Language for submission" ))
