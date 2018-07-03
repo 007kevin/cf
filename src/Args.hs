@@ -35,13 +35,13 @@ submitParser = Submit <$> submitOpts
 
 submitOpts :: Parser SubmitOpts
 submitOpts = SubmitOpts
-               <$> argument str (metavar "FILE")
-               <*> (optional $ strOption ( long "prob" <>
-                               metavar "PROB" <>
-                               help "Codeforces contest with problem, eg 100A" ))
-               <*> (optional $ strOption ( long "lang" <>
-                               metavar "LANG" <>
-                               help "Language for submission" ))
+             <$> argument str (metavar "FILE")
+             <*> (optional $ strOption ( long "prob" <>
+                                         metavar "PROB" <>
+                                         help "Codeforces contest with problem, eg 100A" ))
+             <*> (optional $ strOption ( long "lang" <>
+                                         metavar "LANG" <>
+                                         help "Language for submission" ))
 
 version :: Parser (a -> a)
 version = infoOption appVersion
@@ -55,7 +55,9 @@ parser = Args <$>
                 ( progDesc "Log into Codeforces" )) <>
               command "submit"
               ( info submitParser
-                ( progDesc "Submit a problem to Codeforces" )))
+                ( progDesc ("Submit a problem to Codeforces. " ++
+                  "FILE can be of the form <contest><problem>.<ext> (e.g 100A.cpp). " ++
+                  "If omitted, will attempt to submit the latest file in the current directory"))))
 
 opts = info ( helper <*> version <*> parser ) idm
 

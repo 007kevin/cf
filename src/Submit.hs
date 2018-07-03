@@ -12,7 +12,7 @@ import           Control.Monad.Trans.Class (lift)
 import           System.Directory (XdgDirectory(XdgConfig), getXdgDirectory)
 import           Text.Pretty.Simple (pPrint)
 import           ProgressIndicator
-import           CookieSaver
+import           DataSaver
 import           Metadata (submit_url, submit_url1, language)
 import           Network.HTTP.Client(defaultManagerSettings)
 import           Network.HTTP.Client.Internal (Cookie)
@@ -33,9 +33,10 @@ start file prob lang = do
   (c,p,l) <- (infer file prob lang) ?? AppError ("unable to infer information from " ++ file)
   attemptSubmit file c p l
 
--- attemptSubmit :: String -> String -> String -> String -> ExceptT AppError IO ()
+attemptSubmit :: String -> String -> String -> String -> ExceptT AppError IO ()
 attemptSubmit file contest prob lang = do
   cookieJar <- loadCookieJar
+  lift $ putStrLn $ "Submitting " ++ file ++ " to contest " ++ contest ++ " for problem " ++ prob
   session <- lift $ Sess.newSessionControl (Just cookieJar) defaultManagerSettings
   csrf_token <- getCsrfToken session (submit_url contest)
   source <- getSource file
@@ -45,10 +46,11 @@ attemptSubmit file contest prob lang = do
            "submittedProblemIndex" := (prob::String),
            "programTypeId" := (language lang),
            "source" := (source::String) ]
-  return res
+  pPrint $ res ^. responseStatus.statusCode
+  return ()
 
 infer :: String -> Maybe String -> Maybe String -> Maybe (String, String, String)
-infer file (Just p) (Just l) = return ("he",p,l)
+infer file (Just p) (Just l) = return (file,p,l)
 infer file Nothing Nothing = do
   c <- cont file
   p <- prob file

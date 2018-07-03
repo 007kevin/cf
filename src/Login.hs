@@ -8,7 +8,7 @@ import           Control.Lens ((^.))
 import           Control.Monad.Plus (guard)
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.Maybe
-import           CookieSaver
+import           DataSaver
 import           Data.Aeson (encode, decode)
 import qualified Data.ByteString.Lazy.Char8 as Char
 import           Metadata (login_url)
@@ -19,12 +19,12 @@ import           System.IO
 import           Text.Pretty.Simple (pPrint)
 import           Text.Regex.TDFA
 
-initLogin :: String -> IO()
+initLogin :: String -> IO ()
 initLogin handle =  do
   password <- getPassword
   result <- runExceptT $ attemptLogin handle password
   case result of
-    Right v          -> pPrint v
+    Right v          -> return ()
     Left FailedLogin -> putStrLn "Login failed"
     Left e           -> putStrLn $ show e
 
@@ -50,6 +50,7 @@ attemptLogin handle password = do
                                               "remember"      := ("no"::String),
                                               "action"        := ("enter"::String) ]
   isLoginSuccess res
+  lift $ putStrLn "Login successful"
   cookies <- (Sess.getSessionCookieJar session) !? AppError "unable to get cookiejar"
   saveCookieJar cookies
 
