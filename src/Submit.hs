@@ -32,11 +32,10 @@ initSubmit file cont prob lang = do
     Right _  -> return ()
     Left e -> pPrint e
 
--- start :: String -> Maybe String -> Maybe String -> ExceptT AppError IO ()
+start :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> ExceptT AppError IO ()
 start file cont prob lang = do
-  (f,c,p,l) <- (infer file cont prob lang) ?? AppError ("unable to infer information from " ++ (show file))
-  attemptSubmit f c p l
-
+  (f,c,p,l) <- extractInfo file cont prob lang
+  attemptSubmit c f p l
 attemptSubmit :: String -> String -> String -> String -> ExceptT AppError IO ()
 attemptSubmit file contest prob lang = do
   cookieJar <- loadCookieJar
@@ -56,6 +55,13 @@ attemptSubmit file contest prob lang = do
   lift $ putStrLn status
   return ()
 
+extractInfo :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> ExceptT AppError IO (String, String, String, String)
+extractInfo Nothing Nothing Nothing Nothing = mostRecentFile
+extractInfo file cont prob lang = (infer file cont prob lang) ?? AppError ("unable to infer information from " ++ (show file))
+
+mostRecentFile :: ExceptT AppError IO (String, String, String, String)
+mostRecentFile = return ("1","2","3","4")
+  
 infer :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe (String, String, String, String)
 infer (Just file) (Just cont) (Just prob) (Just lang) = return (file, cont, prob,lang)
 infer (Just file) Nothing Nothing Nothing = do
@@ -76,6 +82,7 @@ infer (Just file) Nothing Nothing Nothing = do
     lang f = case takeExtension f of
       "" -> Nothing
       e -> Just (tail e) -- remove the dot
+-- get the latest file with file ex      
 
 getCsrfToken :: Sess.Session -> String -> ExceptT AppError IO String
 getCsrfToken session url =
