@@ -9,11 +9,13 @@ import AppError
 import Control.Error
 import Control.Error.Util ((??))
 import Control.Exception (SomeException)
+import Data.List (find)
 import System.FilePath.Posix (takeExtension, takeBaseName)
 import qualified Network.HTTP.Client.Internal as HTTP
 import Control.Monad.Trans.Class (lift)
 import qualified Data.ByteString.Lazy.Char8 as Char
 import Data.Aeson
+import Data.Aeson.Encode.Pretty (encodePretty)
 import Data.Text.Encoding
 import Control.Monad.Trans.Except (ExceptT)
 import           System.Directory (XdgDirectory( XdgConfig ),
@@ -90,7 +92,7 @@ defaultUserConfig = UserConfig
                              code = "19",
                              command = "" },
                   Language { extension = "cpp",
-                             code = "1",
+                             code = "54", -- GNU G++17 by default
                              command = "" },
                   Language { extension = "rb",
                              code = "8",
@@ -123,6 +125,13 @@ defaultUserConfig = UserConfig
                              code = "31",
                              command = "" } ] }
 
+language :: String -> UserConfig -> ExceptT AppError IO String
+language ext userConfig = go ?? EConfig ("Unable to match extension " ++ ext)
+  where go = fmap code (find (\x -> ext == extension x ) (languages userConfig))
+
+cookieSaveName = "user.cookies"
+configSaveName = "config.json"
+
 -- Returns the application file path for storing settings. In Unix systems
 -- this will be $HOME/.config/cf/<fname>
 configFilePath :: ExceptT AppError IO FilePath
@@ -135,7 +144,7 @@ configFilePath = do
   
 saveCookieJar :: HTTP.CookieJar -> ExceptT AppError IO ()
 saveCookieJar cookies = do
-  fpath <- fmap (++"user.cookies") configFilePath
+  fpath <- fmap (++cookieSaveName) configFilePath
   lift $ putStrLn ("Saving cookies to " ++ fpath)
   handleExceptT handler . writeFile fpath $ (Char.unpack.encode.HTTP.expose) cookies
   where handler :: SomeException -> AppError
@@ -143,8 +152,8 @@ saveCookieJar cookies = do
 
 loadCookieJar :: ExceptT AppError IO HTTP.CookieJar
 loadCookieJar = do
-  fpath <- fmap (++"user.cookies") configFilePath
-  lift $ putStrLn ("Loading cookies from " ++ fpath)  
+  fpath <- fmap (++cookieSaveName) configFilePath
+  -- lift $ putStrLn ("Loading cookies from " ++ fpath)  
   content <- handleExceptT handler (Char.readFile fpath)
   cookies <- (decode content) ?? EParse "unable to decode cookies"
   return $ HTTP.createCookieJar cookies
@@ -154,7 +163,7 @@ loadCookieJar = do
 -- Returns the defaultUserConfig unless UserConfig already exists
 loadUserConfig :: ExceptT AppError IO UserConfig
 loadUserConfig = do
-  fpath <- fmap (++"user.config") configFilePath
+  fpath <- fmap (++configSaveName) configFilePath
   exist <- handleExceptT handler $ doesPathExist fpath
   case exist of
     False -> return defaultUserConfig
@@ -167,8 +176,8 @@ loadUserConfig = do
 
 saveUserConfig :: UserConfig -> ExceptT AppError IO ()
 saveUserConfig userconfig = do
-  fpath <- fmap (++"user.config") configFilePath
-  lift $ putStrLn ("Saving configurating to " ++ fpath)
-  handleExceptT handler . writeFile fpath $ (Char.unpack.encode) userconfig
+  fpath <- fmap (++configSaveName) configFilePath
+  lift $ putStrLn ("Saving configuration to " ++ fpath)
+  handleExceptT handler . writeFile fpath $ (Char.unpack.encodePretty) userconfig
   where handler :: SomeException -> AppError
         handler e = EWriteFile (show e)

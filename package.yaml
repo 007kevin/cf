@@ -25,11 +25,13 @@ dependencies:
 - wreq
 - http-client
 - lens
+- lens-aeson
 - regex-tdfa
 - bytestring
 - pretty-simple
 - transformers
 - aeson
+- aeson-pretty
 - monadplus
 - text
 - errors

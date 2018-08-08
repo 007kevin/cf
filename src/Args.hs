@@ -25,7 +25,8 @@ loginOpts :: Parser LoginOpts
 loginOpts = LoginOpts <$> argument str (metavar "HANDLE")
 
 data SubmitOpts = SubmitOpts
-  { file :: String,
+  { file :: Maybe String,
+    cont :: Maybe String,    
     prob :: Maybe String,
     lang :: Maybe String }
   deriving Show
@@ -35,10 +36,13 @@ submitParser = Submit <$> submitOpts
 
 submitOpts :: Parser SubmitOpts
 submitOpts = SubmitOpts
-             <$> argument str (metavar "FILE")
+             <$> (optional$ argument str (metavar "FILE"))
              <*> (optional $ strOption ( long "prob" <>
                                          metavar "PROB" <>
-                                         help "Codeforces contest with problem, eg 100A" ))
+                                         help "Codeforces problem index, eg A" ))
+             <*> (optional $ strOption ( long "cont" <>
+                                         metavar "CONT" <>
+                                         help "Codeforces contest, eg 100" ))
              <*> (optional $ strOption ( long "lang" <>
                                          metavar "LANG" <>
                                          help "Language for submission" ))
@@ -56,16 +60,14 @@ parser = Args <$>
               command "submit"
               ( info submitParser
                 ( progDesc ("Submit a problem to Codeforces. " ++
-                  "FILE can be of the form <contest><problem>.<ext> (e.g 100A.cpp). " ++
+                  "FILE can be of the form 100A.cpp else PROB or LANG will have to be provided. " ++
                   "If omitted, will attempt to submit the latest file in the current directory"))))
 
 opts = info ( helper <*> version <*> parser ) idm
 
 run :: Args -> IO()
 run (Args (Login (LoginOpts handle)))            = initLogin handle
-run (Args (Submit (SubmitOpts file prob lang ))) = initSubmit file prob lang
+run (Args (Submit (SubmitOpts file cont prob lang ))) = initSubmit file cont prob lang
 
 start :: IO ()
 start = execParser opts >>= run
-  
-  

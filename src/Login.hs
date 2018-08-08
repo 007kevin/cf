@@ -3,7 +3,7 @@ module Login (initLogin) where
 
 import           AppError
 import           Control.Error
-import           Control.Exception
+import           Control.Exception (SomeException, bracket_)
 import           Control.Lens ((^.))
 import           Control.Monad.Plus (guard)
 import           Control.Monad.Trans.Class (lift)
@@ -53,6 +53,9 @@ attemptLogin handle password = do
   lift $ putStrLn "Login successful"
   cookies <- (Sess.getSessionCookieJar session) !? AppError "unable to get cookiejar"
   saveCookieJar cookies
+  userConfig <- loadUserConfig
+  saveUserConfig $ userConfig { handle = handle }
+  
 
 getCsrfToken :: Sess.Session -> String -> ExceptT AppError IO String
 getCsrfToken session url =
