@@ -12,7 +12,13 @@ import           Control.Lens ((^.), (^?))
 import           Control.Monad.Trans.Except (ExceptT(ExceptT), runExceptT, throwE)
 import           Control.Monad.Trans.Class (lift)
 import           Data.Aeson.Lens (key, _String, nth)
-import           System.Directory (XdgDirectory(XdgConfig), getXdgDirectory)
+import           Data.List (sort)
+import           System.Directory (XdgDirectory(XdgConfig),
+                                   getXdgDirectory,
+                                   getCurrentDirectory,
+                                   getDirectoryContents,
+                                   exeExtension,
+                                   getAccessTime)
 import           Text.Pretty.Simple (pPrint)
 import           ProgressIndicator
 import           DataSaver
@@ -35,7 +41,8 @@ initSubmit file cont prob lang = do
 start :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> ExceptT AppError IO ()
 start file cont prob lang = do
   (f,c,p,l) <- extractInfo file cont prob lang
-  attemptSubmit c f p l
+  attemptSubmit f c p l
+  
 attemptSubmit :: String -> String -> String -> String -> ExceptT AppError IO ()
 attemptSubmit file contest prob lang = do
   cookieJar <- loadCookieJar
@@ -57,10 +64,22 @@ attemptSubmit file contest prob lang = do
 
 extractInfo :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> ExceptT AppError IO (String, String, String, String)
 extractInfo Nothing Nothing Nothing Nothing = mostRecentFile
-extractInfo file cont prob lang = (infer file cont prob lang) ?? AppError ("unable to infer information from " ++ (show file))
+extractInfo file cont prob lang = (infer file cont prob lang) ?? AppError ("unable to infer information from " ++ (show' file))
+  where show' m = case m of
+                    Just m -> m
+                    Nothing -> "unknown"
 
 mostRecentFile :: ExceptT AppError IO (String, String, String, String)
-mostRecentFile = return ("1","2","3","4")
+mostRecentFile = do
+  allowed <- fmap (map extension.languages) loadUserConfig
+  -- get files in the current directory with file extensions found in the user config
+  files <- lift $ fmap
+           (filter ((`elem` allowed).rmDot.takeExtension))
+           (getDirectoryContents =<< getCurrentDirectory)
+  -- among the files, find the latest         
+  latest <- lift $ fmap (snd.head.reverse.sort.(`zip` files)) (sequence (map getAccessTime files))
+  extractInfo (Just latest ) Nothing Nothing Nothing
+  where rmDot e = if null e || head e /= '.' then e else tail e
   
 infer :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe (String, String, String, String)
 infer (Just file) (Just cont) (Just prob) (Just lang) = return (file, cont, prob,lang)
