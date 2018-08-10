@@ -9,10 +9,13 @@ import           System.IO
 import           System.Directory (makeAbsolute)
 import           Control.Error.Util ((??), note, handleExceptT)
 import           Control.Lens ((^.), (^?))
+import           Control.Monad (guard)
 import           Control.Monad.Trans.Except (ExceptT(ExceptT), runExceptT, throwE)
 import           Control.Monad.Trans.Class (lift)
-import           Data.Aeson.Lens (key, _String, nth)
+import           Data.Aeson.Lens (key, _String, _Number
+                                                       , nth)
 import           Data.List (sort)
+import           Data.Text( pack )
 import           System.Directory (XdgDirectory(XdgConfig),
                                    getXdgDirectory,
                                    getCurrentDirectory,
@@ -42,7 +45,7 @@ start :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> ExceptT
 start file cont prob lang = do
   (f,c,p,l) <- extractInfo file cont prob lang
   attemptSubmit f c p l
-  
+
 attemptSubmit :: String -> String -> String -> String -> ExceptT AppError IO ()
 attemptSubmit file contest prob lang = do
   cookieJar <- loadCookieJar
@@ -57,6 +60,7 @@ attemptSubmit file contest prob lang = do
            "submittedProblemIndex" := (prob::String),
            "programTypeId"         := (langId::String),
            "source"                := (source::String) ]
+  verifySubmission (handle userConfig) contest prob
   lift $ putStrLn (show (res ^. responseStatus . statusCode))
   status <- lift $ submissionStatus (handle userConfig)
   lift $ putStrLn status
@@ -76,11 +80,11 @@ mostRecentFile = do
   files <- lift $ fmap
            (filter ((`elem` allowed).rmDot.takeExtension))
            (getDirectoryContents =<< getCurrentDirectory)
-  -- among the files, find the latest         
+  -- among the files, find the latest
   latest <- lift $ fmap (snd.head.reverse.sort.(`zip` files)) (sequence (map getAccessTime files))
   extractInfo (Just latest ) Nothing Nothing Nothing
   where rmDot e = if null e || head e /= '.' then e else tail e
-  
+
 infer :: Maybe String -> Maybe String -> Maybe String -> Maybe String -> Maybe (String, String, String, String)
 infer (Just file) (Just cont) (Just prob) (Just lang) = return (file, cont, prob,lang)
 infer (Just file) Nothing Nothing Nothing = do
@@ -101,7 +105,7 @@ infer (Just file) Nothing Nothing Nothing = do
     lang f = case takeExtension f of
       "" -> Nothing
       e -> Just (tail e) -- remove the dot
--- get the latest file with file ex      
+-- get the latest file with file ex
 
 getCsrfToken :: Sess.Session -> String -> ExceptT AppError IO String
 getCsrfToken session url =
@@ -123,6 +127,22 @@ getSource fpath = do
   return source
   where handler :: SomeException -> AppError
         handler e = EReadFile (show e)
+
+verifySubmission :: String -> String -> String -> ExceptT AppError IO ()
+verifySubmission handle contest prob = do
+  session <- lift $ Sess.newAPISession
+  res <- lift $ Sess.get session (submission_url handle)
+  check res ?? FailedSubmission "unable to verify submission"
+  where
+    check res = do
+      contestId <- res ^? responseBody .
+                   key "result" . nth 0 . key "problem" . key "contestId" . _Number
+      pIndex <- fmap Text.unpack $ res ^? responseBody .
+                key "result" . nth 0 . key "problem" . key "index" . _String
+      -- creationTimeSeconds  <- res ^? responseBody .
+      --                        key "result" . nth 0 . key "creationTimeSeconds" . _Number
+      guard $ (read contest) == contestId
+      guard $ prob == pIndex
 
 checkSubmission :: Sess.Session -> String -> IO (Maybe String)
 checkSubmission session handle = do

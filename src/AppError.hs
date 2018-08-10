@@ -9,7 +9,7 @@ data AppError
   | EReadFile String
   | EConfig String
   | FailedLogin
-  | FailedSubmission
+  | FailedSubmission String
   deriving Show
 
 instance Exception AppError
