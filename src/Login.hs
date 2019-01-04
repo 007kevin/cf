@@ -47,7 +47,7 @@ attemptLogin handle password = do
   res <- lift $ Sess.post session login_url [ "handleOrEmail" := (handle::String),
                                               "password"      := (password::String),
                                               "csrf_token"    := (csrf_token::String),
-                                              "remember"      := ("no"::String),
+                                              "remember"      := ("yes"::String),
                                               "action"        := ("enter"::String) ]
   isLoginSuccess res
   lift $ putStrLn "Login successful"
